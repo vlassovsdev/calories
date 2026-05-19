@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS photo_jobs;
+DROP TYPE IF EXISTS job_status;

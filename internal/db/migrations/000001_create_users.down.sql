@@ -1,0 +1,3 @@
+DROP TABLE IF EXISTS users;
+DROP TYPE IF EXISTS goal_type;
+DROP TYPE IF EXISTS activity_level;
