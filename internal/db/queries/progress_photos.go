@@ -3,6 +3,7 @@ package queries
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/vlassovs/calories/internal/domain"
@@ -24,10 +25,12 @@ func (s *ProgressPhotoStore) Create(ctx context.Context, userID, imageData strin
 		userID, imageData, weightKg, notes, takenAt,
 	)
 	var p domain.ProgressPhoto
-	err := row.Scan(&p.ID, &p.UserID, &p.ImageData, &p.WeightKg, &p.Notes, &p.TakenAt, &p.CreatedAt)
+	var takenAtTime time.Time
+	err := row.Scan(&p.ID, &p.UserID, &p.ImageData, &p.WeightKg, &p.Notes, &takenAtTime, &p.CreatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("Create progress_photo: %w", err)
 	}
+	p.TakenAt = takenAtTime.Format("2006-01-02")
 	return &p, nil
 }
 
@@ -46,9 +49,11 @@ func (s *ProgressPhotoStore) ListByUser(ctx context.Context, userID string) ([]*
 	var photos []*domain.ProgressPhoto
 	for rows.Next() {
 		var p domain.ProgressPhoto
-		if err := rows.Scan(&p.ID, &p.UserID, &p.ImageData, &p.WeightKg, &p.Notes, &p.TakenAt, &p.CreatedAt); err != nil {
+		var takenAt time.Time
+		if err := rows.Scan(&p.ID, &p.UserID, &p.ImageData, &p.WeightKg, &p.Notes, &takenAt, &p.CreatedAt); err != nil {
 			return nil, fmt.Errorf("scan progress_photo: %w", err)
 		}
+		p.TakenAt = takenAt.Format("2006-01-02")
 		photos = append(photos, &p)
 	}
 	return photos, rows.Err()
