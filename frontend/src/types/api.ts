@@ -19,8 +19,19 @@ export interface User {
   sex?: 'M' | 'F'
   activity_level: ActivityLevel
   goal: GoalType
+  avatar_data?: string
   created_at: string
   updated_at: string
+}
+
+export interface ProgressPhoto {
+  id: string
+  user_id: string
+  image_data: string
+  weight_kg?: number
+  notes?: string
+  taken_at: string
+  created_at: string
 }
 
 export interface Tokens {

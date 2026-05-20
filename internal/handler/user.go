@@ -1,8 +1,10 @@
 package handler
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -56,6 +58,48 @@ func (h *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 
 	h.rdb.Del(r.Context(), fmt.Sprintf("tdee:%s", userID))
 	writeJSON(w, http.StatusOK, user)
+}
+
+func (h *UserHandler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.UserIDFromCtx(r.Context())
+	const maxBytes = 2 << 20 // 2 MB
+	if err := r.ParseMultipartForm(maxBytes); err != nil {
+		writeError(w, http.StatusBadRequest, "file too large or invalid multipart form")
+		return
+	}
+	file, _, err := r.FormFile("avatar")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "avatar field required")
+		return
+	}
+	defer file.Close()
+
+	imgBytes, err := io.ReadAll(io.LimitReader(file, maxBytes))
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "read failed")
+		return
+	}
+
+	mime := http.DetectContentType(imgBytes[:min512(len(imgBytes))])
+	if mime != "image/jpeg" && mime != "image/png" && mime != "image/webp" {
+		writeError(w, http.StatusBadRequest, "only JPEG, PNG, WebP images are supported")
+		return
+	}
+
+	dataURL := "data:" + mime + ";base64," + base64.StdEncoding.EncodeToString(imgBytes)
+	user, err := h.users.UpdateAvatar(r.Context(), userID, dataURL)
+	if err != nil || user == nil {
+		writeError(w, http.StatusInternalServerError, "update failed")
+		return
+	}
+	writeJSON(w, http.StatusOK, user)
+}
+
+func min512(n int) int {
+	if n < 512 {
+		return n
+	}
+	return 512
 }
 
 func (h *UserHandler) GetTDEE(w http.ResponseWriter, r *http.Request) {

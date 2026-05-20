@@ -43,6 +43,7 @@ export function DiaryPage() {
 
   const totalCalories = summary?.total_calories ?? entries.reduce((s, e) => s + e.calories, 0)
   const recommended = summary?.recommended_calories
+  const remaining = recommended != null ? recommended - totalCalories : null
 
   const openAdd = (_mealKey: string) => {
     setAddOpen(true)
@@ -83,13 +84,20 @@ export function DiaryPage() {
               ккал{recommended ? ` / ${roundNum(recommended)} рекомендовано` : ''}
             </p>
           </div>
-          {summary && (
-            <div className="text-right text-xs text-gray-500">
-              <p>Б: {roundNum(summary.protein_g)}г</p>
-              <p>Ж: {roundNum(summary.fat_g)}г</p>
-              <p>У: {roundNum(summary.carbs_g)}г</p>
-            </div>
-          )}
+          <div className="text-right text-xs text-gray-500">
+            {remaining !== null && (
+              <p className={`font-medium ${remaining > 0 ? 'text-green-600' : 'text-orange-500'}`}>
+                {remaining > 0 ? `Осталось: ${roundNum(remaining)} ккал` : 'Норма достигнута ✓'}
+              </p>
+            )}
+            {summary && (
+              <>
+                <p>Б: {roundNum(summary.protein_g)}г</p>
+                <p>Ж: {roundNum(summary.fat_g)}г</p>
+                <p>У: {roundNum(summary.carbs_g)}г</p>
+              </>
+            )}
+          </div>
         </div>
         {recommended && (
           <div className="h-2 overflow-hidden rounded-full bg-gray-100">

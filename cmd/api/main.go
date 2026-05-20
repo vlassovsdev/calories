@@ -46,18 +46,20 @@ func main() {
 	diaryStore := queries.NewDiaryStore(pool)
 	foodStore := queries.NewFoodStore(pool)
 	jobStore := queries.NewPhotoJobStore(pool)
+	progressPhotoStore := queries.NewProgressPhotoStore(pool)
 
 	authSvc := service.NewAuthService(userStore, rdb,
 		[]byte(cfg.JWTSecret), cfg.JWTAccessTTL, cfg.JWTRefreshTTL)
 
 	h := &router.Handlers{
-		Auth:   handler.NewAuthHandler(authSvc),
-		User:   handler.NewUserHandler(userStore, rdb),
-		Diary:  handler.NewDiaryHandler(diaryStore),
-		Food:   handler.NewFoodHandler(foodStore),
-		Photo:  handler.NewPhotoHandler(jobStore, rdb, cfg.MaxUploadBytes),
-		Stats:  handler.NewStatsHandler(diaryStore, userStore, rdb),
-		Health: handler.NewHealthHandler(pool, rdb),
+		Auth:          handler.NewAuthHandler(authSvc),
+		User:          handler.NewUserHandler(userStore, rdb),
+		Diary:         handler.NewDiaryHandler(diaryStore),
+		Food:          handler.NewFoodHandler(foodStore),
+		Photo:         handler.NewPhotoHandler(jobStore, rdb, cfg.MaxUploadBytes),
+		Stats:         handler.NewStatsHandler(diaryStore, userStore, rdb),
+		Health:        handler.NewHealthHandler(pool, rdb),
+		ProgressPhoto: handler.NewProgressPhotoHandler(progressPhotoStore, cfg.MaxUploadBytes),
 	}
 
 	httpHandler := router.New(h, pool, rdb, []byte(cfg.JWTSecret))

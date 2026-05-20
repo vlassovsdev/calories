@@ -10,4 +10,7 @@ export const photosApi = {
 
   getJob: (id: string) =>
     client.get<PhotoJob>(`/api/v1/photos/jobs/${id}`),
+
+  listJobs: () =>
+    client.get<PhotoJob[]>('/api/v1/photos/jobs'),
 }

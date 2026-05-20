@@ -50,6 +50,35 @@ func (s *PhotoJobStore) SetCompleted(ctx context.Context, id string, calories fl
 	return err
 }
 
+func (s *PhotoJobStore) ListByUser(ctx context.Context, userID string, limit int) ([]*domain.PhotoJob, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT id, user_id, stream_msg_id, status, result_calories,
+		       result_food_desc, error_message, created_at, completed_at
+		FROM photo_jobs WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2`,
+		userID, limit,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("ListByUser: %w", err)
+	}
+	defer rows.Close()
+
+	var jobs []*domain.PhotoJob
+	for rows.Next() {
+		var j domain.PhotoJob
+		var status string
+		if err := rows.Scan(
+			&j.ID, &j.UserID, &j.StreamMsgID, &status,
+			&j.ResultCalories, &j.ResultFoodDesc, &j.ErrorMessage,
+			&j.CreatedAt, &j.CompletedAt,
+		); err != nil {
+			return nil, fmt.Errorf("ListByUser scan: %w", err)
+		}
+		j.Status = domain.JobStatus(status)
+		jobs = append(jobs, &j)
+	}
+	return jobs, rows.Err()
+}
+
 func (s *PhotoJobStore) SetFailed(ctx context.Context, id, errMsg string) error {
 	_, err := s.pool.Exec(ctx, `
 		UPDATE photo_jobs SET status = 'failed',

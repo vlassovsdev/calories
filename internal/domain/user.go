@@ -30,6 +30,7 @@ type User struct {
 	Sex           *string       `json:"sex,omitempty"`
 	ActivityLevel ActivityLevel `json:"activity_level"`
 	Goal          GoalType      `json:"goal"`
+	AvatarData    *string       `json:"avatar_data,omitempty"`
 	CreatedAt     time.Time     `json:"created_at"`
 	UpdatedAt     time.Time     `json:"updated_at"`
 }

@@ -1,9 +1,10 @@
-import { useState, useRef } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { Camera, Upload, CheckCircle, XCircle, Loader2 } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Camera, Upload, CheckCircle, XCircle, Loader2, History, Plus } from 'lucide-react'
 import { photosApi } from '@/lib/api/photos'
 import { AddEntryDialog } from '@/components/diary/AddEntryDialog'
 import { today } from '@/lib/utils'
+import type { PhotoJob } from '@/types/api'
 
 function PhotoJobPoller({
   jobId,
@@ -12,6 +13,7 @@ function PhotoJobPoller({
   jobId: string
   onAddToDiary: (calories: number, desc: string) => void
 }) {
+  const qc = useQueryClient()
   const { data: job, error } = useQuery({
     queryKey: ['photo-job', jobId],
     queryFn: () => photosApi.getJob(jobId),
@@ -21,6 +23,12 @@ function PhotoJobPoller({
     },
     staleTime: 0,
   })
+
+  useEffect(() => {
+    if (job?.status === 'completed' || job?.status === 'failed') {
+      qc.invalidateQueries({ queryKey: ['photo-jobs-history'] })
+    }
+  }, [job?.status, qc])
 
   if (error) {
     return (
@@ -71,6 +79,62 @@ function PhotoJobPoller({
   )
 }
 
+function HistoryItem({
+  job,
+  onAddToDiary,
+}: {
+  job: PhotoJob
+  onAddToDiary: (calories: number, desc: string) => void
+}) {
+  const date = new Date(job.created_at).toLocaleDateString('ru-RU', {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+
+  if (job.status === 'completed') {
+    return (
+      <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-3">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium text-gray-900">
+            {job.result_food_desc ?? 'Блюдо'}
+          </p>
+          <p className="text-xs text-gray-400">{date}</p>
+        </div>
+        <div className="ml-3 flex items-center gap-3">
+          {job.result_calories != null && (
+            <span className="text-sm font-semibold text-gray-700">
+              {Math.round(job.result_calories)} ккал
+            </span>
+          )}
+          <button
+            onClick={() => onAddToDiary(job.result_calories ?? 0, job.result_food_desc ?? '')}
+            className="flex items-center gap-1 rounded-lg bg-green-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-600"
+          >
+            <Plus className="h-3 w-3" />
+            В дневник
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  if (job.status === 'failed') {
+    return (
+      <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3">
+        <p className="text-xs text-red-500">{date} · Ошибка анализа</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">
+      <p className="text-xs text-gray-400">{date} · Обрабатывается...</p>
+    </div>
+  )
+}
+
 export function PhotoPage() {
   const [jobId, setJobId] = useState<string | null>(null)
   const [preview, setPreview] = useState<string | null>(null)
@@ -79,6 +143,13 @@ export function PhotoPage() {
   const [addDialogOpen, setAddDialogOpen] = useState(false)
   const [addPrefill, setAddPrefill] = useState<{ calories?: number; notes?: string }>({})
   const inputRef = useRef<HTMLInputElement>(null)
+
+  const { data: historyData } = useQuery({
+    queryKey: ['photo-jobs-history'],
+    queryFn: photosApi.listJobs,
+    staleTime: 30000,
+  })
+  const history = historyData ?? []
 
   const handleFile = async (file: File) => {
     setUploadError('')
@@ -175,6 +246,20 @@ export function PhotoPage() {
           >
             Загрузить другое фото
           </button>
+        </div>
+      )}
+
+      {history.length > 0 && (
+        <div className="mt-8">
+          <div className="mb-3 flex items-center gap-2">
+            <History className="h-4 w-4 text-gray-400" />
+            <h2 className="text-sm font-medium text-gray-700">История анализов</h2>
+          </div>
+          <div className="space-y-2">
+            {history.map(job => (
+              <HistoryItem key={job.id} job={job} onAddToDiary={openAddToDiary} />
+            ))}
+          </div>
         </div>
       )}
 

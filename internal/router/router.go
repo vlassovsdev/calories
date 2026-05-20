@@ -14,13 +14,14 @@ import (
 )
 
 type Handlers struct {
-	Auth   *handler.AuthHandler
-	User   *handler.UserHandler
-	Diary  *handler.DiaryHandler
-	Food   *handler.FoodHandler
-	Photo  *handler.PhotoHandler
-	Stats  *handler.StatsHandler
-	Health *handler.HealthHandler
+	Auth          *handler.AuthHandler
+	User          *handler.UserHandler
+	Diary         *handler.DiaryHandler
+	Food          *handler.FoodHandler
+	Photo         *handler.PhotoHandler
+	Stats         *handler.StatsHandler
+	Health        *handler.HealthHandler
+	ProgressPhoto *handler.ProgressPhotoHandler
 }
 
 func New(h *Handlers, pool *pgxpool.Pool, rdb *redis.Client, jwtSecret []byte) http.Handler {
@@ -58,6 +59,9 @@ func New(h *Handlers, pool *pgxpool.Pool, rdb *redis.Client, jwtSecret []byte) h
 				r.Get("/", h.User.GetProfile)
 				r.Put("/", h.User.UpdateProfile)
 				r.Get("/tdee", h.User.GetTDEE)
+				r.Post("/avatar", h.User.UploadAvatar)
+				r.Get("/progress-photos", h.ProgressPhoto.List)
+				r.Post("/progress-photos", h.ProgressPhoto.Create)
 			})
 
 			r.Route("/diary/entries", func(r chi.Router) {
@@ -78,6 +82,7 @@ func New(h *Handlers, pool *pgxpool.Pool, rdb *redis.Client, jwtSecret []byte) h
 			r.Route("/photos", func(r chi.Router) {
 				r.With(middleware.RateLimitMiddleware(rdb, "photo", 5, time.Minute)).
 					Post("/analyze", h.Photo.Analyze)
+				r.Get("/jobs", h.Photo.List)
 				r.Get("/jobs/{id}", h.Photo.GetJob)
 			})
 

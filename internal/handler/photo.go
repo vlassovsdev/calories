@@ -10,6 +10,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/redis/go-redis/v9"
 	"github.com/vlassovs/calories/internal/db/queries"
+	"github.com/vlassovs/calories/internal/domain"
 	"github.com/vlassovs/calories/internal/middleware"
 )
 
@@ -89,6 +90,19 @@ func (h *PhotoHandler) Analyze(w http.ResponseWriter, r *http.Request) {
 		"poll_url": fmt.Sprintf("/api/v1/photos/jobs/%s", job.ID),
 		"status":   "pending",
 	})
+}
+
+func (h *PhotoHandler) List(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.UserIDFromCtx(r.Context())
+	jobs, err := h.jobs.ListByUser(r.Context(), userID, 20)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "query failed")
+		return
+	}
+	if jobs == nil {
+		jobs = []*domain.PhotoJob{}
+	}
+	writeJSON(w, http.StatusOK, jobs)
 }
 
 func (h *PhotoHandler) GetJob(w http.ResponseWriter, r *http.Request) {

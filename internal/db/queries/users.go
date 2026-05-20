@@ -22,7 +22,7 @@ func (s *UserStore) Create(ctx context.Context, email, passwordHash, displayName
 		INSERT INTO users (email, password_hash, display_name)
 		VALUES ($1, $2, $3)
 		RETURNING id, email, display_name, age, weight_kg, height_cm, sex,
-		          activity_level, goal, created_at, updated_at`,
+		          activity_level, goal, avatar_data, created_at, updated_at`,
 		email, passwordHash, displayName,
 	)
 	return scanUser(row)
@@ -31,7 +31,7 @@ func (s *UserStore) Create(ctx context.Context, email, passwordHash, displayName
 func (s *UserStore) GetByEmail(ctx context.Context, email string) (*domain.User, string, error) {
 	row := s.pool.QueryRow(ctx, `
 		SELECT id, email, password_hash, display_name, age, weight_kg, height_cm, sex,
-		       activity_level, goal, created_at, updated_at
+		       activity_level, goal, avatar_data, created_at, updated_at
 		FROM users WHERE email = $1`, email)
 
 	var u domain.User
@@ -43,7 +43,7 @@ func (s *UserStore) GetByEmail(ctx context.Context, email string) (*domain.User,
 
 	err := row.Scan(&u.ID, &u.Email, &hash, &u.DisplayName,
 		&age, &weightKg, &heightCm, &sex,
-		&activityLevel, &goal, &u.CreatedAt, &u.UpdatedAt)
+		&activityLevel, &goal, &u.AvatarData, &u.CreatedAt, &u.UpdatedAt)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, "", nil
@@ -65,7 +65,7 @@ func (s *UserStore) GetByEmail(ctx context.Context, email string) (*domain.User,
 func (s *UserStore) GetByID(ctx context.Context, id string) (*domain.User, error) {
 	row := s.pool.QueryRow(ctx, `
 		SELECT id, email, display_name, age, weight_kg, height_cm, sex,
-		       activity_level, goal, created_at, updated_at
+		       activity_level, goal, avatar_data, created_at, updated_at
 		FROM users WHERE id = $1`, id)
 	return scanUser(row)
 }
@@ -78,8 +78,19 @@ func (s *UserStore) Update(ctx context.Context, id string, age *int, weightKg, h
 			activity_level = $6, goal = $7, updated_at = NOW()
 		WHERE id = $1
 		RETURNING id, email, display_name, age, weight_kg, height_cm, sex,
-		          activity_level, goal, created_at, updated_at`,
+		          activity_level, goal, avatar_data, created_at, updated_at`,
 		id, age, weightKg, heightCm, sex, string(activityLevel), string(goal),
+	)
+	return scanUser(row)
+}
+
+func (s *UserStore) UpdateAvatar(ctx context.Context, id, avatarData string) (*domain.User, error) {
+	row := s.pool.QueryRow(ctx, `
+		UPDATE users SET avatar_data = $2, updated_at = NOW()
+		WHERE id = $1
+		RETURNING id, email, display_name, age, weight_kg, height_cm, sex,
+		          activity_level, goal, avatar_data, created_at, updated_at`,
+		id, avatarData,
 	)
 	return scanUser(row)
 }
@@ -93,7 +104,7 @@ func scanUser(row pgx.Row) (*domain.User, error) {
 
 	err := row.Scan(&u.ID, &u.Email, &u.DisplayName,
 		&age, &weightKg, &heightCm, &sex,
-		&activityLevel, &goal, &u.CreatedAt, &u.UpdatedAt)
+		&activityLevel, &goal, &u.AvatarData, &u.CreatedAt, &u.UpdatedAt)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, nil
