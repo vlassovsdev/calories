@@ -54,7 +54,7 @@ func main() {
 	h := &router.Handlers{
 		Auth:          handler.NewAuthHandler(authSvc),
 		User:          handler.NewUserHandler(userStore, rdb),
-		Diary:         handler.NewDiaryHandler(diaryStore),
+		Diary:         handler.NewDiaryHandler(diaryStore, rdb),
 		Food:          handler.NewFoodHandler(foodStore),
 		Photo:         handler.NewPhotoHandler(jobStore, rdb, cfg.MaxUploadBytes),
 		Stats:         handler.NewStatsHandler(diaryStore, userStore, rdb),

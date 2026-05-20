@@ -1,12 +1,15 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
+	"github.com/redis/go-redis/v9"
 	"github.com/vlassovs/calories/internal/db/queries"
 	"github.com/vlassovs/calories/internal/domain"
 	"github.com/vlassovs/calories/internal/middleware"
@@ -14,10 +17,15 @@ import (
 
 type DiaryHandler struct {
 	diary *queries.DiaryStore
+	rdb   *redis.Client
 }
 
-func NewDiaryHandler(diary *queries.DiaryStore) *DiaryHandler {
-	return &DiaryHandler{diary: diary}
+func NewDiaryHandler(diary *queries.DiaryStore, rdb *redis.Client) *DiaryHandler {
+	return &DiaryHandler{diary: diary, rdb: rdb}
+}
+
+func (h *DiaryHandler) invalidateDailyCache(userID, dateStr string) {
+	h.rdb.Del(context.Background(), fmt.Sprintf("dcal:%s:%s", userID, dateStr))
 }
 
 func (h *DiaryHandler) List(w http.ResponseWriter, r *http.Request) {
@@ -113,6 +121,7 @@ func (h *DiaryHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "create failed")
 		return
 	}
+	h.invalidateDailyCache(userID, req.EntryDate)
 	writeJSON(w, http.StatusCreated, created)
 }
 

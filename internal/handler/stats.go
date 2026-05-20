@@ -37,9 +37,9 @@ func (h *StatsHandler) Daily(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	cacheKey := fmt.Sprintf("dcal:%s:%s", userID, dateStr)
 
-	if cached, err := h.rdb.HGetAll(ctx, cacheKey).Result(); err == nil && len(cached) > 0 {
+	if cached, err := h.rdb.Get(ctx, cacheKey).Result(); err == nil {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(cached)
+		w.Write([]byte(cached))
 		return
 	}
 
@@ -63,15 +63,11 @@ func (h *StatsHandler) Daily(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	h.rdb.HSet(ctx, cacheKey,
-		"total", calories,
-		"protein", protein,
-		"fat", fat,
-		"carbs", carbs,
-	)
-	h.rdb.Expire(ctx, cacheKey, 24*time.Hour)
+	body, _ := json.Marshal(summary)
+	h.rdb.Set(ctx, cacheKey, string(body), 10*time.Minute)
 
-	writeJSON(w, http.StatusOK, summary)
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(body)
 }
 
 func (h *StatsHandler) Weekly(w http.ResponseWriter, r *http.Request) {
