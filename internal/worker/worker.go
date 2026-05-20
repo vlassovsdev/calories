@@ -106,6 +106,7 @@ func (w *Worker) processMessage(ctx context.Context, msg redis.XMessage) {
 	if err := w.jobs.SetProcessing(ctx, jobID); err != nil {
 		log.Printf("SetProcessing(%s): %v", jobID, err)
 	}
+	w.rdb.HSet(ctx, fmt.Sprintf("pjob:%s", jobID), "status", "processing")
 
 	result, err := w.vision.AnalyzeFood(ctx, imageB64, mediaType)
 	if err != nil {
@@ -113,6 +114,10 @@ func (w *Worker) processMessage(ctx context.Context, msg redis.XMessage) {
 		retryCount++
 		if retryCount >= maxRetries {
 			w.jobs.SetFailed(ctx, jobID, err.Error())
+			w.rdb.HSet(ctx, fmt.Sprintf("pjob:%s", jobID),
+				"status", "failed",
+				"error_message", err.Error(),
+			)
 			w.rdb.XAck(ctx, streamName, groupName, msg.ID)
 		}
 		return
@@ -121,6 +126,11 @@ func (w *Worker) processMessage(ctx context.Context, msg redis.XMessage) {
 	if err := w.jobs.SetCompleted(ctx, jobID, result.EstimatedCalories, result.FoodDescription); err != nil {
 		log.Printf("SetCompleted(%s): %v", jobID, err)
 	}
+	w.rdb.HSet(ctx, fmt.Sprintf("pjob:%s", jobID),
+		"status", "completed",
+		"result_calories", fmt.Sprintf("%g", result.EstimatedCalories),
+		"result_food_desc", result.FoodDescription,
+	)
 	w.rdb.XAck(ctx, streamName, groupName, msg.ID)
 }
 
