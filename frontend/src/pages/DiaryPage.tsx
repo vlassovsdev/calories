@@ -24,10 +24,12 @@ export function DiaryPage() {
 
   const setDate = (d: string) => setSearchParams({ date: d })
 
-  const { data: entries = [], isLoading: entriesLoading } = useQuery({
+  const { data: entriesData, isLoading: entriesLoading } = useQuery({
     queryKey: ['diary', date],
     queryFn: () => diaryApi.getByDate(date),
   })
+
+  const entries = entriesData ?? []
 
   const { data: summary } = useQuery({
     queryKey: ['stats-daily', date],

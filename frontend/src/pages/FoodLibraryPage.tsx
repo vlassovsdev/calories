@@ -153,11 +153,13 @@ export function FoodLibraryPage() {
   const [query, setQuery] = useState('')
   const [dialogItem, setDialogItem] = useState<FoodItem | null | 'new'>(null)
 
-  const { data: items = [], isLoading } = useQuery({
+  const { data: itemsData, isLoading } = useQuery({
     queryKey: ['food-search', query],
     queryFn: () => foodApi.search(query),
     staleTime: 30000,
   })
+
+  const items = itemsData ?? []
 
   const deleteMutation = useMutation({
     mutationFn: foodApi.delete,
