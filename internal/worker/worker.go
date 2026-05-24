@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -14,10 +13,9 @@ import (
 )
 
 const (
-	streamName    = "photo:analysis"
-	groupName     = "workers"
-	maxRetries    = 3
-	retryCountKey = "retry_count"
+	streamName = "photo:analysis"
+	groupName  = "workers"
+	maxRetries = 3
 )
 
 type Worker struct {
@@ -92,15 +90,22 @@ func (w *Worker) processMessage(ctx context.Context, msg redis.XMessage) {
 		return
 	}
 
+	// Stream message values are immutable — track retries in a separate Redis key.
+	retryKey := fmt.Sprintf("pjob:retry:%s", jobID)
+	retryCount, _ := w.rdb.Incr(ctx, retryKey).Result()
+	w.rdb.Expire(ctx, retryKey, 24*time.Hour)
+
+	if retryCount > maxRetries {
+		// Already exhausted retries in a previous attempt; just ACK and bail.
+		log.Printf("job %s exceeded max retries, discarding", jobID)
+		w.rdb.XAck(ctx, streamName, groupName, msg.ID)
+		return
+	}
+
 	imageB64, _ := msg.Values["image_data_b64"].(string)
 	mediaType, _ := msg.Values["media_type"].(string)
 	if mediaType == "" {
 		mediaType = "image/jpeg"
-	}
-
-	retryCount := 0
-	if rc, ok := msg.Values[retryCountKey].(string); ok {
-		retryCount, _ = strconv.Atoi(rc)
 	}
 
 	if err := w.jobs.SetProcessing(ctx, jobID); err != nil {
@@ -110,8 +115,7 @@ func (w *Worker) processMessage(ctx context.Context, msg redis.XMessage) {
 
 	result, err := w.vision.AnalyzeFood(ctx, imageB64, mediaType)
 	if err != nil {
-		log.Printf("AnalyzeFood(%s): %v", jobID, err)
-		retryCount++
+		log.Printf("AnalyzeFood(%s) attempt %d: %v", jobID, retryCount, err)
 		if retryCount >= maxRetries {
 			w.jobs.SetFailed(ctx, jobID, err.Error())
 			w.rdb.HSet(ctx, fmt.Sprintf("pjob:%s", jobID),
@@ -120,9 +124,11 @@ func (w *Worker) processMessage(ctx context.Context, msg redis.XMessage) {
 			)
 			w.rdb.XAck(ctx, streamName, groupName, msg.ID)
 		}
+		// else: leave un-ACK'd so claimStalled retries after idle timeout
 		return
 	}
 
+	w.rdb.Del(ctx, retryKey)
 	if err := w.jobs.SetCompleted(ctx, jobID, result.EstimatedCalories, result.FoodDescription); err != nil {
 		log.Printf("SetCompleted(%s): %v", jobID, err)
 	}
