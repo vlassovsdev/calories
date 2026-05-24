@@ -142,6 +142,8 @@ export function PhotoPage() {
   const [uploadError, setUploadError] = useState('')
   const [addDialogOpen, setAddDialogOpen] = useState(false)
   const [addPrefill, setAddPrefill] = useState<{ calories?: number; notes?: string }>({})
+  const [pendingFile, setPendingFile] = useState<File | null>(null)
+  const [pendingPreviewUrl, setPendingPreviewUrl] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const { data: historyData } = useQuery({
@@ -151,10 +153,10 @@ export function PhotoPage() {
   })
   const history = historyData ?? []
 
-  const handleFile = async (file: File) => {
+  const handleFile = async (file: File, previewUrl: string) => {
     setUploadError('')
     setJobId(null)
-    setPreview(URL.createObjectURL(file))
+    setPreview(previewUrl)
     setUploading(true)
     try {
       const res = await photosApi.analyze(file)
@@ -166,15 +168,35 @@ export function PhotoPage() {
     }
   }
 
+  const handleFileSelect = (file: File) => {
+    setPendingFile(file)
+    setPendingPreviewUrl(URL.createObjectURL(file))
+  }
+
+  const handleConfirm = () => {
+    if (!pendingFile || !pendingPreviewUrl) return
+    const url = pendingPreviewUrl
+    setPendingFile(null)
+    setPendingPreviewUrl(null)
+    handleFile(pendingFile, url)
+  }
+
+  const handleCancelPreview = () => {
+    if (pendingPreviewUrl) URL.revokeObjectURL(pendingPreviewUrl)
+    setPendingFile(null)
+    setPendingPreviewUrl(null)
+    if (inputRef.current) inputRef.current.value = ''
+  }
+
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault()
     const file = e.dataTransfer.files[0]
-    if (file) handleFile(file)
+    if (file) handleFileSelect(file)
   }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (file) handleFile(file)
+    if (file) handleFileSelect(file)
   }
 
   const openAddToDiary = (calories: number, desc: string) => {
@@ -269,6 +291,43 @@ export function PhotoPage() {
         onClose={() => setAddDialogOpen(false)}
         prefill={addPrefill}
       />
+
+      {pendingPreviewUrl && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+          onClick={handleCancelPreview}
+        >
+          <div
+            className="w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          >
+            <img
+              src={pendingPreviewUrl}
+              alt="Предпросмотр"
+              className="max-h-72 w-full object-cover"
+            />
+            <div className="p-4">
+              <p className="mb-4 text-sm font-medium text-gray-700">
+                Отправить это фото на распознавание?
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleConfirm}
+                  className="flex-1 rounded-xl bg-green-500 py-2.5 text-sm font-semibold text-white hover:bg-green-600 active:scale-95 transition-transform"
+                >
+                  Отправить
+                </button>
+                <button
+                  onClick={handleCancelPreview}
+                  className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-50 active:scale-95 transition-transform"
+                >
+                  Отмена
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
