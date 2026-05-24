@@ -22,7 +22,7 @@ func NewVisionClient(apiKey string) *VisionClient {
 	return &VisionClient{
 		apiKey:     apiKey,
 		httpClient: &http.Client{Timeout: 60 * time.Second},
-		model:      "claude-sonnet-4-6",
+		model:      "claude-haiku-4-5-20251001",
 	}
 }
 
