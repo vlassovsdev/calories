@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -111,12 +112,30 @@ If you cannot identify food, return {"error": "not_food"}.`
 		return nil, fmt.Errorf("empty response from API")
 	}
 
+	raw := stripMarkdownJSON(apiResp.Content[0].Text)
 	var result AnalysisResult
-	if err := json.Unmarshal([]byte(apiResp.Content[0].Text), &result); err != nil {
+	if err := json.Unmarshal([]byte(raw), &result); err != nil {
 		return nil, fmt.Errorf("parse analysis result: %w", err)
 	}
 	if result.Error != "" {
 		return nil, fmt.Errorf("analysis failed: %s", result.Error)
 	}
 	return &result, nil
+}
+
+// stripMarkdownJSON removes ```json / ``` fences the model sometimes adds despite instructions.
+func stripMarkdownJSON(s string) string {
+	s = strings.TrimSpace(s)
+	if strings.HasPrefix(s, "```") {
+		// drop the opening fence line
+		if idx := strings.Index(s, "\n"); idx != -1 {
+			s = s[idx+1:]
+		}
+		// drop the closing fence
+		if idx := strings.LastIndex(s, "```"); idx != -1 {
+			s = s[:idx]
+		}
+		s = strings.TrimSpace(s)
+	}
+	return s
 }
